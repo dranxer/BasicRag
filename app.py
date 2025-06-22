@@ -7,36 +7,46 @@ from dotenv import load_dotenv
 load_dotenv()
 
 st.set_page_config(page_title="Gemini RAG Chatbot", layout="wide")
-st.title("🧠 Gemini RAG Chatbot")
+st.title("🤖 Gemini RAG Chatbot")
 
 with st.sidebar:
-    st.header("📁 Upload File")
-    uploaded_file = st.file_uploader("Upload a .pdf or .txt file", type=["pdf", "txt"])
+    st.header("📁 Upload PDF or TXT")
+    uploaded_file = st.file_uploader("Upload a file", type=["pdf", "txt"])
     if uploaded_file is not None:
         os.makedirs("docs", exist_ok=True)
-        save_path = f"docs/{uploaded_file.name}"
-        with open(save_path, "wb") as f:
+        path = f"docs/{uploaded_file.name}"
+        with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        msg = ingest_file(save_path)
-        st.success(msg)
+        st.success(ingest_file(path))
+        if "chat" in st.session_state:
+            del st.session_state.chat  # Clear chat when new doc is uploaded
 
-if os.path.exists("app/vectorstore/index.faiss"):
-    st.subheader("💬 Ask Questions About the Uploaded File")
-
+# 🚀 Load the chain if vectorstore is ready
+if os.path.exists("modules/vectorstore/index.faiss"):
     if "chat" not in st.session_state:
         st.session_state.chat = []
         st.session_state.qa = get_chain()
 
-    user_input = st.chat_input("Ask a question")
-    if user_input:
-        with st.spinner("Thinking..."):
-            response = st.session_state.qa({"question": user_input})
-            st.session_state.chat.append((user_input, response["answer"]))
-
-    for q, a in st.session_state.chat:
+    # 🧠 ChatGPT-style chat UI
+    for msg in st.session_state.chat:
         with st.chat_message("user"):
-            st.write(q)
-        with st.chat_message("ai"):
-            st.write(a)
+            st.markdown(msg["user"])
+        with st.chat_message("assistant"):
+            st.markdown(msg["bot"])
+
+    # 🧾 Input field
+    prompt = st.chat_input("Ask something about your document...")
+    if prompt:
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.spinner("Thinking..."):
+            response = st.session_state.qa({"question": prompt})
+            answer = response["answer"]
+
+        with st.chat_message("assistant"):
+            st.markdown(answer)
+
+        st.session_state.chat.append({"user": prompt, "bot": answer})
 else:
-    st.info("Upload a file to begin.")
+    st.info("📂 Please upload a file to begin chatting.")
