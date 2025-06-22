@@ -1,7 +1,7 @@
 import streamlit as st
 import os
-from app.ingest import ingest_file
-from app.chat_chain import get_chain
+from modules.ingest import ingest_file
+from modules.chat_chain import get_chain
 from dotenv import load_dotenv
 
 load_dotenv()
