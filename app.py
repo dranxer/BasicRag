@@ -1,89 +1,101 @@
 import streamlit as st
-import os
-from modules.ingest import ingest_file
-from modules.chat_chain import get_chain
+from llama_index.core import StorageContext, load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader, ChatPromptTemplate
+from llama_index.llms.huggingface import HuggingFaceInferenceAPI
 from dotenv import load_dotenv
-from transformers import pipeline
-import requests
-import glob
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core import Settings
+import os
+import base64
 
+# Load environment variables
 load_dotenv()
 
-st.set_page_config(page_title="RAG Chatbot", layout="wide")
-st.title("RAG Chatbot")
+# Configure the Llama index settings
+Settings.llm = HuggingFaceInferenceAPI(
+    model_name="google/gemma-1.1-7b-it",
+    tokenizer_name="google/gemma-1.1-7b-it",
+    context_window=3000,
+    token=os.getenv("HF_TOKEN"),
+    max_new_tokens=512,
+    generate_kwargs={"temperature": 0.1},
+)
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name="BAAI/bge-small-en-v1.5"
+)
 
-# Sidebar file upload
-with st.sidebar:
-    st.header("📁 Upload PDF or TXT")
-    uploaded_file = st.file_uploader("Upload a file", type=["pdf", "txt"])
-    if uploaded_file is not None:
-        os.makedirs("docs", exist_ok=True)
-        file_path = f"docs/{uploaded_file.name}"
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        st.success(ingest_file(file_path))
-        if "chat" in st.session_state:
-            del st.session_state.chat
+# Define the directory for persistent storage and data
+PERSIST_DIR = "./db"
+DATA_DIR = "data"
 
-# Init session
-if "chat" not in st.session_state:
-    st.session_state.chat = []
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(PERSIST_DIR, exist_ok=True)
 
-# Load vectorstore and QA chain
-def vectorstore_exists():
-    return bool(glob.glob("modules/vectorstore/*.faiss"))
+def displayPDF(file):
+    with open(file, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
 
-rag_available = vectorstore_exists()
-if rag_available and "qa" not in st.session_state:
-    st.session_state.qa = get_chain()
+def data_ingestion():
+    documents = SimpleDirectoryReader(DATA_DIR).load_data()
+    storage_context = StorageContext.from_defaults()
+    index = VectorStoreIndex.from_documents(documents)
+    index.storage_context.persist(persist_dir=PERSIST_DIR)
 
-# Setup fallback LLM (Hugging Face Inference API)
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
-headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
-
-def query_hf(prompt):
-    payload = {"inputs": prompt}
-    response = requests.post(API_URL, headers=headers, json=payload)
-    result = response.json()
-    if isinstance(result, list) and "generated_text" in result[0]:
-        return result[0]["generated_text"]
-    elif isinstance(result, dict) and "error" in result:
-        return f"Error: {result['error']}"
+def handle_query(query):
+    storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
+    index = load_index_from_storage(storage_context)
+    chat_text_qa_msgs = [
+    (
+        "user",
+        """You are a Q&A assistant named CHATTO, created by Suriya. You have a specific response programmed for when users specifically ask about your creator, Suriya. The response is: "I was created by Suriya, an enthusiast in Artificial Intelligence. He is dedicated to solving complex problems and delivering innovative solutions. With a strong focus on machine learning, deep learning, Python, generative AI, NLP, and computer vision, Suriya is passionate about pushing the boundaries of AI to explore new possibilities." For all other inquiries, your main goal is to provide answers as accurately as possible, based on the instructions and context you have been given. If a question does not match the provided context or is outside the scope of the document, kindly advise the user to ask questions within the context of the document.
+        Context:
+        {context_str}
+        Question:
+        {query_str}
+        """
+    )
+    ]
+    text_qa_template = ChatPromptTemplate.from_messages(chat_text_qa_msgs)
+    
+    query_engine = index.as_query_engine(text_qa_template=text_qa_template)
+    answer = query_engine.query(query)
+    
+    if hasattr(answer, 'response'):
+        return answer.response
+    elif isinstance(answer, dict) and 'response' in answer:
+        return answer['response']
     else:
-        return str(result)
+        return "Sorry, I couldn't find an answer."
 
-if "llm" not in st.session_state:
-    st.session_state.llm = query_hf
 
-# Show chat history
-for msg in st.session_state.chat:
-    with st.chat_message("user"):
-        st.markdown(msg["user"])
-    with st.chat_message("assistant"):
-        st.markdown(msg["bot"])
+# Streamlit app initialization
+st.title("(PDF) Information and Inference🗞️")
+st.markdown("Retrieval-Augmented Generation") 
+st.markdown("start chat ...🚀")
 
-# If no vectorstore, show info and halt the app
-if not rag_available:
-    st.info("Please upload a PDF or TXT file in the sidebar to start chatting about your documents.")
-    st.stop()
+if 'messages' not in st.session_state:
+    st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF and ask me anything about its content.'}]
 
-# Chat input (only runs if vectorstore exists)
-prompt = st.chat_input("Ask your question (about uploaded file or general topic)...")
-if prompt:
-    with st.chat_message("user"):
-        st.markdown(prompt)
+with st.sidebar:
+    st.title("Menu:")
+    uploaded_file = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button")
+    if st.button("Submit & Process"):
+        with st.spinner("Processing..."):
+            filepath = "data/saved_pdf.pdf"
+            with open(filepath, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            # displayPDF(filepath)  # Display the uploaded PDF
+            data_ingestion()  # Process PDF every time new file is uploaded
+            st.success("Done")
 
-    with st.spinner("Thinking..."):
-        try:
-            if rag_available:
-                response = st.session_state.qa({"question": prompt})
-                answer = response["answer"]
-            else:
-                answer = st.session_state.llm(prompt)
-        except Exception as e:
-            answer = f"⚠️ Error: {str(e)}"
+user_prompt = st.chat_input("Ask me anything about the content of the PDF:")
+if user_prompt:
+    st.session_state.messages.append({'role': 'user', "content": user_prompt})
+    response = handle_query(user_prompt)
+    st.session_state.messages.append({'role': 'assistant', "content": response})
 
-    with st.chat_message("assistant"):
-        st.markdown(answer)
-
-    st.session_state.chat.append({"user": prompt, "bot": answer})
+for message in st.session_state.messages:
+    with st.chat_message(message['role']):
+        st.write(message['content'])

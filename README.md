@@ -1,15 +1,52 @@
-# BasicRag Streamlit Cloud
+---
+title: RAG PDF CHATBOT
+emoji: 😻
+colorFrom: indigo
+colorTo: purple
+sdk: streamlit
+sdk_version: 1.33.0
+app_file: app.py
+pinned: false
+license: creativeml-openrail-m
+---
 
-This is a Retrieval-Augmented Generation (RAG) chatbot demo for Streamlit Cloud.
+![alt text](assets/14.png)
 
-## How to deploy on Streamlit Cloud
 
-1. **Fork or upload this repo to your GitHub.**
-2. **Go to [Streamlit Cloud](https://streamlit.io/cloud) and create a new app.**
-3. **Point it to your repo and set the main file to `app.py`.**
-4. **(Optional) Add any secrets or environment variables in the Streamlit Cloud UI.**
+## Retrieval-Augmented Generation [ RAG ] 
 
-### Notes
-- This demo uses only CPU-friendly models (`sshleifer/tiny-gpt2` for text generation, `all-MiniLM-L6-v2` for embeddings).
-- File uploads are ephemeral on Streamlit Cloud.
-- If you want to use larger models, you must run locally or on a GPU-enabled server. 
+🚀Check out the configuration reference at : https://huggingface.co/docs/hub/spaces-config-reference
+
+🚀Huggingface space : https://huggingface.co/spaces/prithivMLmods/RAG-PDF-CHATBOT
+
+🚀To Clone Just Install Git Past the Command : git clone https://huggingface.co/spaces/prithivMLmods/RAG-PDF-CHATBOT
+
+ℹ️Generated Result in Huggingface Spaces:
+
+ℹ️Upload the PDF & Submit Process
+
+![alt text](assets/12.png)
+
+🔮Prompt : " Tell about core of the document. "
+
+![alt text](assets/22.png)
+
+.
+
+.
+
+.
+
+.
+
+## Requirements Applied 
+
+    streamlit
+    
+    python-dotenv
+    
+    llama-index
+    
+    llama-index-embeddings-huggingface
+    
+    llama-index-llms-huggingface

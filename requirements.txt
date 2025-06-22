@@ -1,12 +1,5 @@
 streamlit
-langchain
-langchain-core
-langchain-community
-faiss-cpu
-pypdf
-tiktoken
-transformers>=4.21.0
-sentence-transformers
 python-dotenv
-requests
-# For Streamlit Cloud: use only CPU-friendly models like sshleifer/tiny-gpt2
+llama-index
+llama-index-embeddings-huggingface
+llama-index-llms-huggingface
