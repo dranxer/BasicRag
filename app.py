@@ -18,8 +18,12 @@ load_dotenv()
 if "HUGGINGFACEHUB_API_TOKEN" in st.secrets:
     os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
-# Configure the Llama index settings (embeddings only)
-Settings.embed_model = TfidfEmbedding()
+# Use SimpleEmbedding if available, otherwise fallback to no embedding (None)
+try:
+    from llama_index.embeddings.simple import SimpleEmbedding
+    Settings.embed_model = SimpleEmbedding()
+except ImportError:
+    Settings.embed_model = None  # Fallback: no embeddings, use keyword search if needed
 
 # Define the directory for persistent storage and data
 PERSIST_DIR = "./db"
