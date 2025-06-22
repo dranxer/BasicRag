@@ -5,18 +5,18 @@ from langchain.llms import HuggingFacePipeline
 from transformers import pipeline, set_seed
 
 def get_chain():
-    # Load embeddings (fast + accurate)
+    # Load embeddings (fast + accurate, CPU-friendly)
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     # Load vector store from local path
     vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
 
-    # Load Falcon model pipeline (no SentencePiece required)
-    set_seed(42)  # for consistent output
+    # Use a small, CPU-friendly text generation model
+    set_seed(42)
     hf_pipeline = pipeline(
         "text-generation",
-        model="tiiuae/falcon-rw-1b",
-        max_new_tokens=256,
+        model="sshleifer/tiny-gpt2",  # Small model for demo/cloud
+        max_new_tokens=128,
         do_sample=True,
         temperature=0.7,
         top_k=50,

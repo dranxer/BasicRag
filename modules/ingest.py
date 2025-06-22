@@ -1,7 +1,6 @@
-
 import os
 import shutil
-from langchain.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
@@ -27,6 +26,7 @@ def ingest_file(file_path):
     if os.path.exists("modules/vectorstore"):
         shutil.rmtree("modules/vectorstore")
 
+    # Use a small, CPU-friendly embedding model
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectorstore = FAISS.from_documents(chunks, embeddings)
     vectorstore.save_local("modules/vectorstore")

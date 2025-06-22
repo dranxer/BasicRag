@@ -32,12 +32,12 @@ rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Setup fallback LLM (Falcon - no SentencePiece)
+# Setup fallback LLM (Tiny GPT-2 for Streamlit Cloud)
 if "llm" not in st.session_state:
     st.session_state.llm = pipeline(
         "text-generation",
-        model="tiiuae/falcon-rw-1b",
-        max_new_tokens=256,
+        model="sshleifer/tiny-gpt2",
+        max_new_tokens=128,
         do_sample=True,
         temperature=0.7
     )
