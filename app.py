@@ -57,7 +57,15 @@ def query_hf(prompt, context=None):
         full_prompt = prompt
     payload = {"inputs": full_prompt}
     response = requests.post(API_URL, headers=headers, json=payload)
-    result = response.json()
+    # Check for HTTP errors or empty response
+    if response.status_code != 200:
+        return f"API Error: {response.status_code} - {response.text}"
+    if not response.text.strip():
+        return "API Error: Empty response from Hugging Face Inference API."
+    try:
+        result = response.json()
+    except Exception as e:
+        return f"API Error: Could not decode JSON. Raw response: {response.text}"
     if isinstance(result, list) and "generated_text" in result[0]:
         return result[0]["generated_text"]
     elif isinstance(result, dict) and "error" in result:
