@@ -49,7 +49,7 @@ def get_context(query):
     return context_str
 
 def query_hf(prompt, context=None):
-    API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen3-4B-Base"
     headers = {"Authorization": f"Bearer {os.environ['HUGGINGFACEHUB_API_TOKEN']}"}
     if context:
         full_prompt = f"Context:\n{context}\n\nQuestion:\n{prompt}"
