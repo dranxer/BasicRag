@@ -21,8 +21,8 @@ if doc_file:
     os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
     # Build index
     llm = HuggingFaceLLM(
-        model_name="meta-llama/Llama-2-7b-chat-hf",
-        tokenizer_name="meta-llama/Llama-2-7b-chat-hf",
+        model_name="Qwen/Qwen2-7B-Instruct",
+        tokenizer_name="Qwen/Qwen2-7B-Instruct",
         context_window=4096,
         max_new_tokens=256,
         generate_kwargs={"temperature": 0.1, "do_sample": False},
