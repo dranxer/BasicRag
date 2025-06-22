@@ -1,19 +1,22 @@
 import streamlit as st
+import os
 from llama_index.core import StorageContext, load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader, ChatPromptTemplate
 from llama_index.llms.huggingface import HuggingFaceLLM
 from dotenv import load_dotenv
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
-import os
 import base64
 
 # Load environment variables
 load_dotenv()
 
+# Set the Hugging Face token from Streamlit secrets (or .env)
+if "HUGGINGFACEHUB_API_TOKEN" in st.secrets:
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+
 # Configure the Llama index settings
 Settings.llm = HuggingFaceLLM(
-    model="google/flan-t5-small",  # or your preferred model
-    api_key=os.getenv("HF_TOKEN"), # or st.secrets["HF_TOKEN"] for Streamlit Cloud
+    model="google/flan-t5-small",
     is_chat_model=False
 )
 Settings.embed_model = HuggingFaceEmbedding(
@@ -65,7 +68,6 @@ def handle_query(query):
         return answer['response']
     else:
         return "Sorry, I couldn't find an answer."
-
 
 # Streamlit app initialization
 st.title("(PDF) Information and Inference🗞️")
