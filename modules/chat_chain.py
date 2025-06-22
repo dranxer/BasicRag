@@ -1,20 +1,21 @@
+from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
+from langchain.chains import RetrievalQA
 from langchain.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
 def get_chain():
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
-    retriever = vectorstore.as_retriever()
+    try:
+        vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
+    except Exception as e:
+        raise RuntimeError("❌ Failed to load vectorstore. Try re-uploading the file.") from e
 
-    llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    llm = ChatGoogleGenerativeAI(model="gemini-pro")
 
-    qa = ConversationalRetrievalChain.from_llm(
+    qa = RetrievalQA.from_chain_type(
         llm=llm,
-        retriever=retriever,
-        memory=memory,
-        return_source_documents=True
+        retriever=vectorstore.as_retriever(),
+        return_source_documents=False
     )
     return qa

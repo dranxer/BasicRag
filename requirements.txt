@@ -6,3 +6,4 @@ langchain-community
 faiss-cpu
 pypdf
 tiktoken
+python-dotenv

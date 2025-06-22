@@ -19,22 +19,19 @@ with st.sidebar:
             f.write(uploaded_file.getbuffer())
         st.success(ingest_file(path))
         if "chat" in st.session_state:
-            del st.session_state.chat  # Clear chat when new doc is uploaded
+            del st.session_state.chat  # Reset chat if new file uploaded
 
-# 🚀 Load the chain if vectorstore is ready
 if os.path.exists("modules/vectorstore/index.faiss"):
     if "chat" not in st.session_state:
         st.session_state.chat = []
         st.session_state.qa = get_chain()
 
-    # 🧠 ChatGPT-style chat UI
     for msg in st.session_state.chat:
         with st.chat_message("user"):
             st.markdown(msg["user"])
         with st.chat_message("assistant"):
             st.markdown(msg["bot"])
 
-    # 🧾 Input field
     prompt = st.chat_input("Ask something about your document...")
     if prompt:
         with st.chat_message("user"):
