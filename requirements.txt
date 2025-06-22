@@ -8,4 +8,5 @@ tiktoken
 transformers>=4.21.0
 sentence-transformers
 python-dotenv
+requests
 # For Streamlit Cloud: use only CPU-friendly models like sshleifer/tiny-gpt2

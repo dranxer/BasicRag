@@ -4,6 +4,7 @@ from modules.ingest import ingest_file
 from modules.chat_chain import get_chain
 from dotenv import load_dotenv
 from transformers import pipeline
+import requests
 
 load_dotenv()
 
@@ -32,15 +33,23 @@ rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Setup fallback LLM (Tiny GPT-2 for Streamlit Cloud)
+# Setup fallback LLM (Hugging Face Inference API)
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+
+def query_hf(prompt):
+    payload = {"inputs": prompt}
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+    if isinstance(result, list) and "generated_text" in result[0]:
+        return result[0]["generated_text"]
+    elif isinstance(result, dict) and "error" in result:
+        return f"Error: {result['error']}"
+    else:
+        return str(result)
+
 if "llm" not in st.session_state:
-    st.session_state.llm = pipeline(
-        "text-generation",
-        model="sshleifer/tiny-gpt2",
-        max_new_tokens=128,
-        do_sample=True,
-        temperature=0.7
-    )
+    st.session_state.llm = query_hf
 
 # Show chat history
 for msg in st.session_state.chat:
@@ -61,8 +70,7 @@ if prompt:
                 response = st.session_state.qa({"question": prompt})
                 answer = response["answer"]
             else:
-                result = st.session_state.llm(prompt)[0]["generated_text"]
-                answer = result.replace(prompt, "").strip()
+                answer = st.session_state.llm(prompt)
         except Exception as e:
             answer = f"⚠️ Error: {str(e)}"
 
