@@ -2,7 +2,11 @@ import streamlit as st
 import os
 from llama_index.core import StorageContext, load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader, ChatPromptTemplate
 from dotenv import load_dotenv
-from llama_index.embeddings.tfidf import TfidfEmbedding
+# Try alternative import paths for TfidfEmbedding
+try:
+    from llama_index.embeddings import TfidfEmbedding
+except ImportError:
+    from llama_index.embeddings.tfidf_embedding import TfidfEmbedding
 from llama_index.core import Settings
 import base64
 import requests
