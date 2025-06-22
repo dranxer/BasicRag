@@ -10,30 +10,29 @@ load_dotenv()
 st.set_page_config(page_title="RAG Chatbot", layout="wide")
 st.title("RAG Chatbot")
 
-# Sidebar for file upload
+# Sidebar file upload
 with st.sidebar:
     st.header("📁 Upload PDF or TXT")
     uploaded_file = st.file_uploader("Upload a file", type=["pdf", "txt"])
     if uploaded_file is not None:
         os.makedirs("docs", exist_ok=True)
-        path = f"docs/{uploaded_file.name}"
-        with open(path, "wb") as f:
+        file_path = f"docs/{uploaded_file.name}"
+        with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        st.success(ingest_file(path))
-        # Clear previous chat history
+        st.success(ingest_file(file_path))
         if "chat" in st.session_state:
             del st.session_state.chat
 
-# Initialize session state
+# Init session
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
-# Check if vectorstore exists and load RAG chain
+# Load vectorstore and QA chain
 rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Setup fallback LLM using Falcon (no SentencePiece dependency)
+# Setup fallback LLM (Falcon - no SentencePiece)
 if "llm" not in st.session_state:
     st.session_state.llm = pipeline(
         "text-generation",
@@ -63,7 +62,7 @@ if prompt:
                 answer = response["answer"]
             else:
                 result = st.session_state.llm(prompt)[0]["generated_text"]
-                answer = result[len(prompt):].strip()
+                answer = result.replace(prompt, "").strip()
         except Exception as e:
             answer = f"⚠️ Error: {str(e)}"
 
