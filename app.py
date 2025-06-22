@@ -17,6 +17,8 @@ if doc_file:
         f.write(doc_file.read())
     docs = SimpleDirectoryReader(input_files=["uploaded_doc"]).load_data()
     st.success("Document loaded!")
+    # Set HuggingFace token as env variable
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
     # Build index
     llm = HuggingFaceLLM(
         model_name="meta-llama/Llama-2-7b-chat-hf",
@@ -26,7 +28,6 @@ if doc_file:
         generate_kwargs={"temperature": 0.1, "do_sample": False},
         tokenizer_kwargs={},
         device_map="auto",
-        huggingface_access_token=token,
     )
     service_context = ServiceContext.from_defaults(llm=llm)
     index = VectorStoreIndex.from_documents(docs, service_context=service_context)
