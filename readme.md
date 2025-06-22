@@ -1,11 +1,11 @@
-# Llama 2 RAG Chat App (Streamlit + LlamaIndex)
+# RAG Chat App (Phi-3 Mini + LlamaIndex)
 
-A minimal Retrieval-Augmented Generation (RAG) app using Llama 2 (via HuggingFace) and LlamaIndex, with a Streamlit UI.
+A minimal Retrieval-Augmented Generation (RAG) app using Phi-3 Mini (via HuggingFace Inference API) and LlamaIndex, with a Streamlit UI.
 
 ## Features
-- Upload a document (txt or PDF)
+- Upload a small .txt document
 - Build a vector index with LlamaIndex
-- Chat with your document using Llama 2 (HuggingFace Inference)
+- Chat with your document using Phi-3 Mini
 
 ## How to Deploy on Streamlit Cloud
 
@@ -28,5 +28,5 @@ streamlit run app.py
 ```
 
 ## Notes
-- You need a HuggingFace account and an access token to use Llama 2 models.
-- For larger models or more speed, you can swap the model name in `app.py`. 
+- You need a HuggingFace account and an access token to use Phi-3 Mini.
+- Only .txt files are supported for document upload. 
