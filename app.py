@@ -8,8 +8,8 @@ from transformers import pipeline
 
 load_dotenv()
 
-st.set_page_config(page_title="HuggingFace RAG Chatbot", layout="wide")
-st.title("🤖 HuggingFace RAG Chatbot")
+st.set_page_config(page_title="RAG Chatbot", layout="wide")
+st.title("RAG Chatbot")
 
 # Sidebar uploader
 with st.sidebar:
@@ -34,7 +34,8 @@ if rag_available and "qa" not in st.session_state:
 
 # Fallback LLM with HuggingFace Transformers
 if "llm" not in st.session_state:
-    st.session_state.llm = pipeline("text-generation", model="tiiuae/falcon-7b-instruct", max_new_tokens=256)
+    st.session_state.llm = pipeline("text-generation", model="distilgpt2", max_new_tokens=256)
+
 
 # Display chat history
 for msg in st.session_state.chat:

@@ -9,7 +9,7 @@ def get_chain():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
 
-    hf_pipeline = pipeline("text-generation", model="tiiuae/falcon-7b-instruct", max_new_tokens=256)
+    hf_pipeline = pipeline("text-generation", model="distilgpt2", max_new_tokens=256)
     llm = HuggingFacePipeline(pipeline=hf_pipeline)
 
     qa = RetrievalQA.from_chain_type(
