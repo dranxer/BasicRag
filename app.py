@@ -1,15 +1,14 @@
-
 import streamlit as st
 import os
 from modules.ingest import ingest_file
 from modules.chat_chain import get_chain
 from dotenv import load_dotenv
-from transformers import pipeline
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 load_dotenv()
 
 st.set_page_config(page_title="RAG Chatbot", layout="wide")
-st.title("RAG Chatbot")
+st.title("🤖 RAG Chatbot")
 
 # Sidebar uploader
 with st.sidebar:
@@ -32,10 +31,17 @@ rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Fallback LLM with HuggingFace Transformers
+# Setup FLAN-T5 fallback model
 if "llm" not in st.session_state:
-    st.session_state.llm = pipeline("text-generation", model="distilgpt2", max_new_tokens=256)
+    tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
+    model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
 
+    def flan_t5(prompt):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+        output = model.generate(input_ids, max_new_tokens=128)
+        return tokenizer.decode(output[0], skip_special_tokens=True)
+
+    st.session_state.llm = flan_t5
 
 # Display chat history
 for msg in st.session_state.chat:
@@ -54,8 +60,7 @@ if prompt:
             response = st.session_state.qa({"question": prompt})
             answer = response["answer"]
         else:
-            result = st.session_state.llm(prompt)[0]["generated_text"]
-            answer = result[len(prompt):].strip()
+            answer = st.session_state.llm(prompt)
 
     with st.chat_message("assistant"):
         st.markdown(answer)
