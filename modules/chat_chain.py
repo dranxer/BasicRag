@@ -1,17 +1,15 @@
-from langchain.chains.question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain.embeddings.huggingface import HuggingFaceEmbeddings
+from langchain.llms import HuggingFacePipeline
+from transformers import pipeline
 
 def get_chain():
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    try:
-        vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
-    except Exception as e:
-        raise RuntimeError("❌ Failed to load vectorstore. Try re-uploading the file.") from e
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
 
-    llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    hf_pipeline = pipeline("text-generation", model="tiiuae/falcon-7b-instruct", max_new_tokens=256)
+    llm = HuggingFacePipeline(pipeline=hf_pipeline)
 
     qa = RetrievalQA.from_chain_type(
         llm=llm,

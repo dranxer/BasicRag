@@ -3,7 +3,7 @@ import shutil
 from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 
 def ingest_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
@@ -26,12 +26,7 @@ def ingest_file(file_path):
     if os.path.exists("modules/vectorstore"):
         shutil.rmtree("modules/vectorstore")
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-
-    try:
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-    except Exception as e:
-        raise RuntimeError("⚠️ Gemini embedding failed. Try using a simpler or smaller file.") from e
-
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectorstore = FAISS.from_documents(chunks, embeddings)
     vectorstore.save_local("modules/vectorstore")
     return "✅ File indexed and ready to chat!"
