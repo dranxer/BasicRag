@@ -46,12 +46,18 @@ if doc_file:
     st.session_state["chat_engine"] = chat_engine
     st.session_state["chat_history"] = []
 
-if "chat_engine" in st.session_state:
-    prompt = st.chat_input("Ask something about your document...")
-    if prompt:
-        st.session_state["chat_history"].append(("user", prompt))
-        response = st.session_state["chat_engine"].chat(prompt)
-        st.session_state["chat_history"].append(("llama", response.response))
+# Prompt input and send button (always visible)
+prompt_disabled = "chat_engine" not in st.session_state
+with st.form(key="chat_form", clear_on_submit=True):
+    prompt = st.text_input("Your message:", disabled=prompt_disabled)
+    send = st.form_submit_button("Send", disabled=prompt_disabled)
+
+if send and prompt and not prompt_disabled:
+    st.session_state["chat_history"].append(("user", prompt))
+    response = st.session_state["chat_engine"].chat(prompt)
+    st.session_state["chat_history"].append(("llama", response.response))
+
+if "chat_history" in st.session_state:
     for role, msg in st.session_state["chat_history"]:
         with st.chat_message("user" if role == "user" else "assistant"):
             st.markdown(msg) 
