@@ -8,3 +8,4 @@ pypdf
 tiktoken
 transformers
 sentence-transformers
+sentencepiece
