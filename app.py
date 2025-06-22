@@ -16,7 +16,7 @@ if "HUGGINGFACEHUB_API_TOKEN" in st.secrets:
 
 # Configure the Llama index settings (embeddings only)
 Settings.embed_model = HuggingFaceEmbedding(
-    model_name="BAAI/bge-small-en-v1.5"
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
 # Define the directory for persistent storage and data
