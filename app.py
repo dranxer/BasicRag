@@ -10,7 +10,7 @@ load_dotenv()
 st.set_page_config(page_title="RAG Chatbot", layout="wide")
 st.title("RAG Chatbot")
 
-# Sidebar uploader
+# Sidebar for file upload
 with st.sidebar:
     st.header("📁 Upload PDF or TXT")
     uploaded_file = st.file_uploader("Upload a file", type=["pdf", "txt"])
@@ -20,51 +20,52 @@ with st.sidebar:
         with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.success(ingest_file(path))
+        # Clear previous chat history
         if "chat" in st.session_state:
             del st.session_state.chat
 
-# Init session state
+# Initialize session state
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
+# Check if vectorstore exists and load RAG chain
 rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Fallback Falcon model (no SentencePiece needed)
+# Setup fallback LLM using Falcon (no SentencePiece dependency)
 if "llm" not in st.session_state:
-    hf_pipeline = pipeline(
+    st.session_state.llm = pipeline(
         "text-generation",
         model="tiiuae/falcon-rw-1b",
         max_new_tokens=256,
-        do_sample=False,
-        temperature=0.3
+        do_sample=True,
+        temperature=0.7
     )
 
-    def falcon_response(prompt):
-        output = hf_pipeline(prompt)[0]["generated_text"]
-        return output[len(prompt):].strip()
-
-    st.session_state.llm = falcon_response
-
-# Display chat history
+# Show chat history
 for msg in st.session_state.chat:
     with st.chat_message("user"):
         st.markdown(msg["user"])
     with st.chat_message("assistant"):
         st.markdown(msg["bot"])
 
-prompt = st.chat_input("Ask a question (with or without PDF)...")
+# Chat input
+prompt = st.chat_input("Ask your question (about uploaded file or general topic)...")
 if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.spinner("Thinking..."):
-        if rag_available:
-            response = st.session_state.qa({"question": prompt})
-            answer = response["answer"]
-        else:
-            answer = st.session_state.llm(prompt)
+        try:
+            if rag_available:
+                response = st.session_state.qa({"question": prompt})
+                answer = response["answer"]
+            else:
+                result = st.session_state.llm(prompt)[0]["generated_text"]
+                answer = result[len(prompt):].strip()
+        except Exception as e:
+            answer = f"⚠️ Error: {str(e)}"
 
     with st.chat_message("assistant"):
         st.markdown(answer)
