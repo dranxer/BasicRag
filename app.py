@@ -3,12 +3,12 @@ import os
 from modules.ingest import ingest_file
 from modules.chat_chain import get_chain
 from dotenv import load_dotenv
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import pipeline
 
 load_dotenv()
 
 st.set_page_config(page_title="RAG Chatbot", layout="wide")
-st.title("🤖 RAG Chatbot")
+st.title("RAG Chatbot")
 
 # Sidebar uploader
 with st.sidebar:
@@ -31,17 +31,21 @@ rag_available = os.path.exists("modules/vectorstore/index.faiss")
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
-# Setup FLAN-T5 fallback model
+# Fallback Falcon model (no SentencePiece needed)
 if "llm" not in st.session_state:
-    tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
-    model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
+    hf_pipeline = pipeline(
+        "text-generation",
+        model="tiiuae/falcon-rw-1b",
+        max_new_tokens=256,
+        do_sample=False,
+        temperature=0.3
+    )
 
-    def flan_t5(prompt):
-        input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-        output = model.generate(input_ids, max_new_tokens=128)
-        return tokenizer.decode(output[0], skip_special_tokens=True)
+    def falcon_response(prompt):
+        output = hf_pipeline(prompt)[0]["generated_text"]
+        return output[len(prompt):].strip()
 
-    st.session_state.llm = flan_t5
+    st.session_state.llm = falcon_response
 
 # Display chat history
 for msg in st.session_state.chat:
