@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from llama_index.core import StorageContext, load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader, ChatPromptTemplate
 from dotenv import load_dotenv
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.tfidf import TfidfEmbedding
 from llama_index.core import Settings
 import base64
 import requests
@@ -15,9 +15,7 @@ if "HUGGINGFACEHUB_API_TOKEN" in st.secrets:
     os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
 # Configure the Llama index settings (embeddings only)
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+Settings.embed_model = TfidfEmbedding()
 
 # Define the directory for persistent storage and data
 PERSIST_DIR = "./db"
