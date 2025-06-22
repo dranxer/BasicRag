@@ -1,72 +1,92 @@
-import streamlit as st
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, ServiceContext
-from llama_index.llms.huggingface import HuggingFaceLLM
-import os
+import gradio as gr
+from huggingface_hub import InferenceClient
+import fitz  # PyMuPDF
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import faiss
+from typing import List, Tuple
 
-st.set_page_config(page_title="RAG Chat (Phi-3 Mini)", page_icon="🤖", layout="centered")
-st.title("🤖 RAG Chat with Phi-3 Mini (LlamaIndex)")
-st.markdown("""
-**Instructions:**
-- Enter your HuggingFace API token in the sidebar (get one at https://huggingface.co/settings/tokens)
-- Upload a small .txt file
-- Ask questions about your document below
-""")
+client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
 
-# Sidebar for HuggingFace token
-token = st.sidebar.text_input("HuggingFace API Token", type="password", value=os.getenv("HUGGINGFACEHUB_API_TOKEN", ""))
+class MyApp:
+    def __init__(self):
+        self.documents = []
+        self.embeddings = None
+        self.index = None
+        self.load_pdf("sample.pdf")
+        self.build_vector_db()
 
-# File uploader (txt only)
-doc_file = st.file_uploader("Upload a text file", type=["txt"]) 
+    def load_pdf(self, file_path: str) -> None:
+        doc = fitz.open(file_path)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text()
+            self.documents.append({"page": page_num + 1, "content": text})
+        print("PDF processed successfully!")
 
-# Error if no token
-token_error = False
-if not token:
-    st.warning("Please enter your HuggingFace API token in the sidebar.")
-    token_error = True
+    def build_vector_db(self) -> None:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embeddings = model.encode([doc["content"] for doc in self.documents])
+        self.index = faiss.IndexFlatL2(self.embeddings.shape[1])
+        self.index.add(np.array(self.embeddings))
+        print("Vector database built successfully!")
 
-# Build index if file and token are present
-if doc_file and not token_error:
-    with st.spinner("Loading document and building index..."):
-        with open("uploaded_doc.txt", "wb") as f:
-            f.write(doc_file.read())
-        try:
-            docs = SimpleDirectoryReader(input_files=["uploaded_doc.txt"]).load_data()
-            os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
-            llm = HuggingFaceLLM(
-                model_name="microsoft/phi-3-mini-4k-instruct",
-                tokenizer_name="microsoft/phi-3-mini-4k-instruct",
-                context_window=2048,
-                max_new_tokens=256,
-                generate_kwargs={"temperature": 0.1, "do_sample": False},
-                tokenizer_kwargs={},
-                device_map="auto",
-            )
-            service_context = ServiceContext.from_defaults(llm=llm)
-            index = VectorStoreIndex.from_documents(docs, service_context=service_context)
-            chat_engine = index.as_chat_engine()
-            st.session_state["chat_engine"] = chat_engine
-            st.session_state["chat_history"] = []
-            st.success("Document loaded and indexed!")
-        except Exception as e:
-            st.error(f"Error loading document or building index: {e}")
-            st.stop()
+    def search_documents(self, query: str, k: int = 3) -> List[str]:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        query_embedding = model.encode([query])
+        D, I = self.index.search(np.array(query_embedding), k)
+        return [self.documents[i]["content"] for i in I[0]]
 
-# Prompt input and send button (always visible)
-prompt_disabled = "chat_engine" not in st.session_state
-with st.form(key="chat_form", clear_on_submit=True):
-    prompt = st.text_input("Your message:", disabled=prompt_disabled)
-    send = st.form_submit_button("Send", disabled=prompt_disabled)
+app = MyApp()
 
-if send and prompt and not prompt_disabled:
-    st.session_state["chat_history"].append(("user", prompt))
-    with st.spinner("Getting answer from Phi-3 Mini..."):
-        try:
-            response = st.session_state["chat_engine"].chat(prompt)
-            st.session_state["chat_history"].append(("phi3", response.response))
-        except Exception as e:
-            st.session_state["chat_history"].append(("phi3", f"Error: {e}"))
+def respond(message: str, history: List[Tuple[str, str]], system_message: str, max_tokens: int, temperature: float, top_p: float):
+    system_message = "You are a knowledgeable DBT coach. You always talk about one option at a time..."
+    messages = [{"role": "system", "content": system_message}]
 
-if "chat_history" in st.session_state:
-    for role, msg in st.session_state["chat_history"]:
-        with st.chat_message("user" if role == "user" else "assistant"):
-            st.markdown(msg) 
+    for val in history:
+        if val[0]:
+            messages.append({"role": "user", "content": val[0]})
+        if val[1]:
+            messages.append({"role": "assistant", "content": val[1]})
+
+    messages.append({"role": "user", "content": message})
+
+    retrieved_docs = app.search_documents(message)
+    context = "\n".join(retrieved_docs)
+    messages.append({"role": "system", "content": "Relevant documents: " + context})
+
+    response = ""
+    for message in client.chat_completion(
+        messages,
+        max_tokens=max_tokens,
+        stream=True,
+        temperature=temperature,
+        top_p=top_p,
+    ):
+        token = message.choices[0].delta.content
+        response += token
+        yield response
+
+demo = gr.Blocks()
+
+with demo:
+    gr.Markdown("🧘‍♀️ **Dialectical Behaviour Therapy**")
+    gr.Markdown(
+        "‼️Disclaimer: This chatbot is based on a DBT exercise book that is publicly available. "
+        "We are not medical practitioners, and the use of this chatbot is at your own responsibility.‼️"
+    )
+
+    chatbot = gr.ChatInterface(
+        respond,
+        examples=[
+            ["I feel overwhelmed with work."],
+            ["Can you guide me through a quick meditation?"],
+            ["How do I stop worrying about things I can't control?"],
+            ["What are some DBT skills for managing anxiety?"],
+            ["Can you explain mindfulness in DBT?"]
+        ],
+        title='Dialectical Behaviour Therapy Assistant 👩‍⚕️'
+    )
+
+if __name__ == "__main__":
+    demo.launch()
