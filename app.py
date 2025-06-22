@@ -49,13 +49,11 @@ def get_context(query):
     return context_str
 
 def query_hf(prompt, context=None):
-    API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
     headers = {"Authorization": f"Bearer {os.environ['HUGGINGFACEHUB_API_TOKEN']}"}
-    if context:
-        full_prompt = f"Context:\n{context}\n\nQuestion:\n{prompt}"
-    else:
-        full_prompt = prompt
-    payload = {"inputs": full_prompt}
+    if context is None:
+        context = ""
+    payload = {"inputs": {"question": prompt, "context": context}}
     response = requests.post(API_URL, headers=headers, json=payload)
     # Check for HTTP errors or empty response
     if response.status_code != 200:
@@ -66,9 +64,12 @@ def query_hf(prompt, context=None):
         result = response.json()
     except Exception as e:
         return f"API Error: Could not decode JSON. Raw response: {response.text}"
-    if isinstance(result, list) and "generated_text" in result[0]:
-        return result[0]["generated_text"]
-    elif isinstance(result, dict) and "error" in result:
+    # The result is usually a dict with 'answer' key
+    if isinstance(result, dict) and 'answer' in result:
+        return result['answer']
+    elif isinstance(result, list) and len(result) > 0 and 'answer' in result[0]:
+        return result[0]['answer']
+    elif isinstance(result, dict) and 'error' in result:
         return f"Error: {result['error']}"
     else:
         return str(result)
