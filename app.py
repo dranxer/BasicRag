@@ -5,6 +5,7 @@ from modules.chat_chain import get_chain
 from dotenv import load_dotenv
 from transformers import pipeline
 import requests
+import glob
 
 load_dotenv()
 
@@ -29,7 +30,10 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # Load vectorstore and QA chain
-rag_available = os.path.exists("modules/vectorstore/index.faiss")
+def vectorstore_exists():
+    return bool(glob.glob("modules/vectorstore/*.faiss"))
+
+rag_available = vectorstore_exists()
 if rag_available and "qa" not in st.session_state:
     st.session_state.qa = get_chain()
 
@@ -57,6 +61,10 @@ for msg in st.session_state.chat:
         st.markdown(msg["user"])
     with st.chat_message("assistant"):
         st.markdown(msg["bot"])
+
+# Before chat input, show a message if no vectorstore is present
+if not rag_available:
+    st.info("Please upload a PDF or TXT file in the sidebar to start chatting about your documents.")
 
 # Chat input
 prompt = st.chat_input("Ask your question (about uploaded file or general topic)...")
