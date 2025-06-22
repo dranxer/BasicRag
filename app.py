@@ -62,11 +62,12 @@ for msg in st.session_state.chat:
     with st.chat_message("assistant"):
         st.markdown(msg["bot"])
 
-# Before chat input, show a message if no vectorstore is present
+# If no vectorstore, show info and halt the app
 if not rag_available:
     st.info("Please upload a PDF or TXT file in the sidebar to start chatting about your documents.")
+    st.stop()
 
-# Chat input
+# Chat input (only runs if vectorstore exists)
 prompt = st.chat_input("Ask your question (about uploaded file or general topic)...")
 if prompt:
     with st.chat_message("user"):
