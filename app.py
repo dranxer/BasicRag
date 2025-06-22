@@ -1,6 +1,6 @@
 import streamlit as st
 from llama_index.core import StorageContext, load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader, ChatPromptTemplate
-from llama_index.llms.huggingface import HuggingFaceInferenceAPI
+from llama_index.llms.huggingface import HuggingFaceLLM
 from dotenv import load_dotenv
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
@@ -11,13 +11,10 @@ import base64
 load_dotenv()
 
 # Configure the Llama index settings
-Settings.llm = HuggingFaceInferenceAPI(
-    model_name="google/gemma-1.1-7b-it",
-    tokenizer_name="google/gemma-1.1-7b-it",
-    context_window=3000,
-    token=os.getenv("HF_TOKEN"),
-    max_new_tokens=512,
-    generate_kwargs={"temperature": 0.1},
+Settings.llm = HuggingFaceLLM(
+    model="google/flan-t5-small",  # or your preferred model
+    api_key=os.getenv("HF_TOKEN"), # or st.secrets["HF_TOKEN"] for Streamlit Cloud
+    is_chat_model=False
 )
 Settings.embed_model = HuggingFaceEmbedding(
     model_name="BAAI/bge-small-en-v1.5"
