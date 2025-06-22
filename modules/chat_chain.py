@@ -5,7 +5,7 @@ from langchain.memory import ConversationBufferMemory
 
 def get_chain():
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vectorstore = FAISS.load_local("app/vectorstore", embeddings)
+    vectorstore = FAISS.load_local("modules/vectorstore", embeddings)
     retriever = vectorstore.as_retriever()
 
     llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
