@@ -1,91 +1,117 @@
-import gradio as gr
-from huggingface_hub import InferenceClient
+"""
+DBT Coach — a Retrieval-Augmented Generation chatbot.
+
+A Gradio chat app that answers questions about Dialectical Behaviour Therapy (DBT).
+It indexes a source PDF with sentence-transformer embeddings + FAISS, retrieves the
+most relevant passages for each question, and streams a grounded reply from a hosted
+open-source LLM (Zephyr-7B) via the Hugging Face Inference API.
+
+Disclaimer: this is an educational demo built on a publicly available DBT workbook.
+It is not medical advice.
+"""
 import fitz  # PyMuPDF
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import faiss
-from typing import List, Tuple
+import gradio as gr
+import numpy as np
+from huggingface_hub import InferenceClient
+from sentence_transformers import SentenceTransformer
 
-client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
+PDF_PATH = "saved_pdf.pdf"
+EMBED_MODEL = "all-MiniLM-L6-v2"
+LLM_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 
-class MyApp:
-    def __init__(self):
-        self.documents = []
-        self.embeddings = None
-        self.index = None
-        self.load_pdf("sample.pdf")
-        self.build_vector_db()
+client = InferenceClient(LLM_MODEL)
 
-    def load_pdf(self, file_path: str) -> None:
+
+class RagStore:
+    """Loads a PDF once, embeds it once, and serves fast similarity search."""
+
+    def __init__(self, pdf_path: str):
+        # Load the embedding model a single time (previously reloaded on every query).
+        self.encoder = SentenceTransformer(EMBED_MODEL)
+        self.documents = self._load_pdf(pdf_path)
+        self.index = self._build_index()
+
+    def _load_pdf(self, file_path: str):
         doc = fitz.open(file_path)
+        docs = []
         for page_num in range(len(doc)):
-            page = doc[page_num]
-            text = page.get_text()
-            self.documents.append({"page": page_num + 1, "content": text})
-        print("PDF processed successfully!")
+            text = doc[page_num].get_text().strip()
+            if text:
+                docs.append({"page": page_num + 1, "content": text})
+        print(f"PDF processed: {len(docs)} non-empty pages")
+        return docs
 
-    def build_vector_db(self) -> None:
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.embeddings = model.encode([doc["content"] for doc in self.documents])
-        self.index = faiss.IndexFlatL2(self.embeddings.shape[1])
-        self.index.add(np.array(self.embeddings))
-        print("Vector database built successfully!")
+    def _build_index(self):
+        embeddings = self.encoder.encode(
+            [d["content"] for d in self.documents], convert_to_numpy=True
+        )
+        index = faiss.IndexFlatL2(embeddings.shape[1])
+        index.add(embeddings)
+        print("Vector database built")
+        return index
 
-    def search_documents(self, query: str, k: int = 3) -> List[str]:
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-        query_embedding = model.encode([query])
-        D, I = self.index.search(np.array(query_embedding), k)
-        return [self.documents[i]["content"] for i in I[0]]
+    def search(self, query: str, k: int = 3):
+        q = self.encoder.encode([query], convert_to_numpy=True)
+        k = min(k, len(self.documents))
+        _, idx = self.index.search(q, k)
+        return [self.documents[i]["content"] for i in idx[0]]
 
-app = MyApp()
 
-def respond(message: str, history: List[Tuple[str, str]], system_message: str, max_tokens: int, temperature: float, top_p: float):
-    system_message = "You are a knowledgeable DBT coach. You always talk about one option at a time..."
-    messages = [{"role": "system", "content": system_message}]
+store = RagStore(PDF_PATH)
 
-    for val in history:
-        if val[0]:
-            messages.append({"role": "user", "content": val[0]})
-        if val[1]:
-            messages.append({"role": "assistant", "content": val[1]})
+SYSTEM_PROMPT = (
+    "You are a knowledgeable and supportive DBT (Dialectical Behaviour Therapy) coach. "
+    "Discuss one skill or option at a time, keep answers concise and practical, and ground "
+    "your guidance in the retrieved context. You are not a medical professional."
+)
 
+
+def respond(message, history, system_message, max_tokens, temperature, top_p):
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for user_msg, bot_msg in history:
+        if user_msg:
+            messages.append({"role": "user", "content": user_msg})
+        if bot_msg:
+            messages.append({"role": "assistant", "content": bot_msg})
+
+    context = "\n".join(store.search(message))
+    messages.append({"role": "system", "content": "Relevant context:\n" + context})
     messages.append({"role": "user", "content": message})
 
-    retrieved_docs = app.search_documents(message)
-    context = "\n".join(retrieved_docs)
-    messages.append({"role": "system", "content": "Relevant documents: " + context})
-
     response = ""
-    for message in client.chat_completion(
-        messages,
-        max_tokens=max_tokens,
-        stream=True,
-        temperature=temperature,
-        top_p=top_p,
+    for chunk in client.chat_completion(
+        messages, max_tokens=max_tokens, stream=True,
+        temperature=temperature, top_p=top_p,
     ):
-        token = message.choices[0].delta.content
+        token = chunk.choices[0].delta.content or ""
         response += token
         yield response
 
+
 demo = gr.Blocks()
-
 with demo:
-    gr.Markdown("🧘‍♀️ **Dialectical Behaviour Therapy**")
+    gr.Markdown("# 🧘 DBT Coach — RAG Chatbot")
     gr.Markdown(
-        "‼️Disclaimer: This chatbot is based on a DBT exercise book that is publicly available. "
-        "We are not medical practitioners, and the use of this chatbot is at your own responsibility.‼️"
+        "‼️ **Disclaimer:** based on a publicly available DBT workbook. "
+        "This is not medical advice; use at your own discretion. ‼️"
     )
-
-    chatbot = gr.ChatInterface(
+    gr.ChatInterface(
         respond,
+        additional_inputs=[
+            gr.Textbox(value=SYSTEM_PROMPT, label="System prompt"),
+            gr.Slider(1, 2048, value=512, step=1, label="Max new tokens"),
+            gr.Slider(0.1, 2.0, value=0.7, step=0.1, label="Temperature"),
+            gr.Slider(0.1, 1.0, value=0.95, step=0.05, label="Top-p"),
+        ],
         examples=[
             ["I feel overwhelmed with work."],
-            ["Can you guide me through a quick meditation?"],
+            ["Can you guide me through a quick grounding exercise?"],
             ["How do I stop worrying about things I can't control?"],
             ["What are some DBT skills for managing anxiety?"],
-            ["Can you explain mindfulness in DBT?"]
+            ["Can you explain mindfulness in DBT?"],
         ],
-        title='Dialectical Behaviour Therapy Assistant 👩‍⚕️'
+        title="DBT Coach",
     )
 
 if __name__ == "__main__":
